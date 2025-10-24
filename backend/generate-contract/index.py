@@ -94,17 +94,19 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
             doc = Document(io.BytesIO(template_bytes))
             
             for paragraph in doc.paragraphs:
-                for key, value in replacements.items():
-                    if key in paragraph.text:
-                        paragraph.text = paragraph.text.replace(key, value)
+                for run in paragraph.runs:
+                    for key, value in replacements.items():
+                        if key in run.text:
+                            run.text = run.text.replace(key, value)
             
             for table in doc.tables:
                 for row in table.rows:
                     for cell in row.cells:
                         for paragraph in cell.paragraphs:
-                            for key, value in replacements.items():
-                                if key in paragraph.text:
-                                    paragraph.text = paragraph.text.replace(key, value)
+                            for run in paragraph.runs:
+                                for key, value in replacements.items():
+                                    if key in run.text:
+                                        run.text = run.text.replace(key, value)
             
             doc_buffer = io.BytesIO()
             doc.save(doc_buffer)

@@ -1,0 +1,36 @@
+{
+  "tests": [
+    {
+      "name": "Test contract generation with valid data",
+      "method": "POST",
+      "path": "/",
+      "body": {
+        "contractNumber": "25/10/2025",
+        "contractDate": "25 октября 2025 г.",
+        "citizenship": "Германии",
+        "fullName": "EDUARD FRANK IOSIFOVIC",
+        "shortName": "EDUARD F.I.",
+        "nickname": "EDDI$",
+        "passport": "GER: L8V2RCZ80",
+        "email": "mr-frank-eduard@web.de"
+      },
+      "expectedStatus": 200,
+      "expectedHeaders": {
+        "Content-Type": "application/zip"
+      }
+    },
+    {
+      "name": "Test missing required fields",
+      "method": "POST",
+      "path": "/",
+      "body": {
+        "contractNumber": "25/10/2025"
+      },
+      "expectedStatus": 400,
+      "expectedBody": {
+        "error": "string"
+      },
+      "bodyMatcher": "partial"
+    }
+  ]
+}

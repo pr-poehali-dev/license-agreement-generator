@@ -46,13 +46,42 @@ export default function Index() {
       description: 'Создаём пакет документов...'
     });
 
-    setTimeout(() => {
-      setIsLoading(false);
+    try {
+      const response = await fetch('https://functions.poehali.dev/2889c09b-6960-425c-96fa-e6468d7ab38e', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(formData)
+      });
+
+      if (!response.ok) {
+        throw new Error('Ошибка генерации');
+      }
+
+      const blob = await response.blob();
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `Договор_пакет_${formData.contractNumber.replace('/', '-')}.zip`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      window.URL.revokeObjectURL(url);
+
       toast({
         title: 'Готово!',
-        description: 'Документы успешно сгенерированы'
+        description: 'Документы успешно сгенерированы и скачаны'
       });
-    }, 2000);
+    } catch (error) {
+      toast({
+        title: 'Ошибка',
+        description: 'Не удалось сгенерировать документы. Попробуйте снова.',
+        variant: 'destructive'
+      });
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   return (

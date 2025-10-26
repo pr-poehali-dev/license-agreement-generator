@@ -5,14 +5,19 @@ import { Label } from '@/components/ui/label';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
+import { Calendar } from '@/components/ui/calendar';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import Icon from '@/components/ui/icon';
 import { useToast } from '@/hooks/use-toast';
+import { format } from 'date-fns';
+import { ru } from 'date-fns/locale';
+import { cn } from '@/lib/utils';
 
 export default function Index() {
   const { toast } = useToast();
   const [isLoading, setIsLoading] = useState(false);
+  const [date, setDate] = useState<Date>();
   const [formData, setFormData] = useState({
-    contractDate: '',
     citizenship: '',
     fullName: '',
     shortName: '',
@@ -26,10 +31,10 @@ export default function Index() {
   };
 
   const handleGenerate = async () => {
-    const requiredFields = ['contractDate', 'citizenship', 'fullName', 'shortName', 'nickname', 'passport', 'email'];
+    const requiredFields = ['citizenship', 'fullName', 'shortName', 'nickname', 'passport', 'email'];
     const emptyFields = requiredFields.filter(field => !formData[field as keyof typeof formData]);
 
-    if (emptyFields.length > 0) {
+    if (emptyFields.length > 0 || !date) {
       toast({
         title: 'Заполните все поля',
         description: 'Пожалуйста, заполните все обязательные поля формы',
@@ -37,6 +42,8 @@ export default function Index() {
       });
       return;
     }
+    
+    const contractDate = format(date, 'd MMMM yyyy г.', { locale: ru });
 
     setIsLoading(true);
     
@@ -51,7 +58,10 @@ export default function Index() {
         headers: {
           'Content-Type': 'application/json'
         },
-        body: JSON.stringify(formData)
+        body: JSON.stringify({
+          ...formData,
+          contractDate
+        })
       });
 
       if (!response.ok) {
@@ -86,6 +96,12 @@ export default function Index() {
   return (
     <div className="min-h-screen bg-gradient-to-br from-background via-primary/5 to-accent/10">
       <div className="container mx-auto px-4 py-8 max-w-6xl">
+        <div className="flex justify-end mb-4">
+          <Button variant="outline" className="gap-2" onClick={() => window.location.href = '/history'}>
+            <Icon name="History" size={18} />
+            История договоров
+          </Button>
+        </div>
         <div className="text-center mb-8 animate-fade-in">
           <div className="inline-flex items-center gap-3 mb-4">
             <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-primary via-secondary to-accent flex items-center justify-center shadow-lg">
@@ -138,17 +154,32 @@ export default function Index() {
               <CardContent className="pt-6 space-y-5">
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
                   <div className="space-y-2">
-                    <Label htmlFor="contractDate" className="font-montserrat flex items-center gap-2">
+                    <Label className="font-montserrat flex items-center gap-2">
                       <Icon name="Calendar" size={16} />
                       Дата заключения
                     </Label>
-                    <Input
-                      id="contractDate"
-                      placeholder="25 октября 2025 г."
-                      value={formData.contractDate}
-                      onChange={(e) => handleInputChange('contractDate', e.target.value)}
-                      className="font-inter"
-                    />
+                    <Popover>
+                      <PopoverTrigger asChild>
+                        <Button
+                          variant="outline"
+                          className={cn(
+                            'w-full justify-start text-left font-inter',
+                            !date && 'text-muted-foreground'
+                          )}
+                        >
+                          <Icon name="Calendar" size={16} className="mr-2" />
+                          {date ? format(date, 'd MMMM yyyy г.', { locale: ru }) : 'Выберите дату'}
+                        </Button>
+                      </PopoverTrigger>
+                      <PopoverContent className="w-auto p-0">
+                        <Calendar
+                          mode="single"
+                          selected={date}
+                          onSelect={setDate}
+                          initialFocus
+                        />
+                      </PopoverContent>
+                    </Popover>
                   </div>
 
                   <div className="space-y-2">
@@ -158,7 +189,7 @@ export default function Index() {
                     </Label>
                     <Input
                       id="citizenship"
-                      placeholder="Германии"
+                      placeholder="Гражданин РФ, Гражданин РБ"
                       value={formData.citizenship}
                       onChange={(e) => handleInputChange('citizenship', e.target.value)}
                       className="font-inter"
@@ -172,7 +203,7 @@ export default function Index() {
                     </Label>
                     <Input
                       id="fullName"
-                      placeholder="EDUARD FRANK IOSIFOVIC"
+                      placeholder="Костырев Виктор Николаевич"
                       value={formData.fullName}
                       onChange={(e) => handleInputChange('fullName', e.target.value)}
                       className="font-inter"
@@ -186,7 +217,7 @@ export default function Index() {
                     </Label>
                     <Input
                       id="shortName"
-                      placeholder="EDUARD F.I."
+                      placeholder="Костырев В.Н."
                       value={formData.shortName}
                       onChange={(e) => handleInputChange('shortName', e.target.value)}
                       className="font-inter"
@@ -200,7 +231,7 @@ export default function Index() {
                     </Label>
                     <Input
                       id="nickname"
-                      placeholder="EDDI$"
+                      placeholder="GUT1K"
                       value={formData.nickname}
                       onChange={(e) => handleInputChange('nickname', e.target.value)}
                       className="font-inter"
@@ -229,7 +260,7 @@ export default function Index() {
                     <Input
                       id="email"
                       type="email"
-                      placeholder="mr-frank-eduard@web.de"
+                      placeholder="GUT1K@MAIL.RU"
                       value={formData.email}
                       onChange={(e) => handleInputChange('email', e.target.value)}
                       className="font-inter"

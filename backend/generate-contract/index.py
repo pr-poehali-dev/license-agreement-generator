@@ -69,7 +69,6 @@ def get_next_contract_number() -> str:
     conn = psycopg2.connect(database_url)
     cur = conn.cursor()
     
-    # Get and increment counter atomically
     cur.execute(
         "UPDATE contract_counter SET current_number = current_number + 1, "
         "updated_at = CURRENT_TIMESTAMP WHERE id = 1 RETURNING current_number"
@@ -80,9 +79,32 @@ def get_next_contract_number() -> str:
     cur.close()
     conn.close()
     
-    # Format: ЛД-ГП-001/2024
     current_year = datetime.now().year
     return f'ЛД-ГП-{new_number:03d}/{current_year}'
+
+def save_contract_to_history(contract_number: str, nickname: str, full_name: str, 
+                             short_name: str, contract_date: str, citizenship: str, 
+                             email: str, passport: str):
+    """Save contract info to history"""
+    import psycopg2
+    
+    database_url = os.environ.get('DATABASE_URL')
+    if not database_url:
+        return
+    
+    conn = psycopg2.connect(database_url)
+    cur = conn.cursor()
+    
+    cur.execute(
+        "INSERT INTO contracts (contract_number, nickname, full_name, short_name, "
+        "contract_date, citizenship, email, passport) "
+        "VALUES (%s, %s, %s, %s, %s, %s, %s, %s)",
+        (contract_number, nickname, full_name, short_name, contract_date, citizenship, email, passport)
+    )
+    
+    conn.commit()
+    cur.close()
+    conn.close()
 
 def send_document_to_telegram(file_bytes: bytes, filename: str, bot_token: str, chat_id: str):
     """Send single document to Telegram"""
@@ -177,7 +199,8 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
         '{{mail}}': email
     }
     
-    doc_name = f'Договор_{contract_number.replace("/", "-")}.docx'
+    nickname_clean = nickname.replace(' ', '_').replace('/', '-')
+    doc_name = f'{nickname_clean}_Договор_{contract_number.replace("/", "-")}.docx'
     
     doc = Document(io.BytesIO(template_bytes))
     
@@ -208,6 +231,15 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
     doc_buffer.seek(0)
     doc_bytes = doc_buffer.read()
     
+    # Save to history
+    try:
+        save_contract_to_history(
+            contract_number, nickname, full_name, short_name,
+            contract_date, citizenship, email, passport
+        )
+    except Exception as e:
+        pass
+    
     # Send to Telegram
     try:
         bot_token = os.environ.get('TELEGRAM_BOT_TOKEN')
@@ -215,7 +247,7 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
         if bot_token and chat_id:
             send_document_to_telegram(doc_bytes, doc_name, bot_token, chat_id)
     except Exception as e:
-        pass  # Continue even if Telegram fails
+        pass
     
     doc_base64 = base64.b64encode(doc_bytes).decode('utf-8')
     

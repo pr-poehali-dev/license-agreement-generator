@@ -23,7 +23,9 @@ export default function Index() {
     shortName: '',
     nickname: '',
     passport: '',
-    email: ''
+    email: '',
+    innSwift: '',
+    bankDetails: ''
   });
 
   const handleInputChange = (field: string, value: string) => {
@@ -31,7 +33,7 @@ export default function Index() {
   };
 
   const handleGenerate = async () => {
-    const requiredFields = ['citizenship', 'fullName', 'shortName', 'nickname', 'passport', 'email'];
+    const requiredFields = ['citizenship', 'fullName', 'shortName', 'nickname', 'passport', 'email', 'innSwift', 'bankDetails'];
     const emptyFields = requiredFields.filter(field => !formData[field as keyof typeof formData]);
 
     if (emptyFields.length > 0 || !date) {
@@ -263,6 +265,34 @@ export default function Index() {
                       placeholder="GUT1K@MAIL.RU"
                       value={formData.email}
                       onChange={(e) => handleInputChange('email', e.target.value)}
+                      className="font-inter"
+                    />
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label htmlFor="innSwift" className="font-montserrat flex items-center gap-2">
+                      <Icon name="Landmark" size={16} />
+                      ИНН/SWIFT
+                    </Label>
+                    <Input
+                      id="innSwift"
+                      placeholder="7743013902 или SABRRUMMXXX"
+                      value={formData.innSwift}
+                      onChange={(e) => handleInputChange('innSwift', e.target.value)}
+                      className="font-inter"
+                    />
+                  </div>
+
+                  <div className="space-y-2 md:col-span-2">
+                    <Label htmlFor="bankDetails" className="font-montserrat flex items-center gap-2">
+                      <Icon name="Building2" size={16} />
+                      Реквизиты
+                    </Label>
+                    <Input
+                      id="bankDetails"
+                      placeholder="Сбербанк России, р/с 40817810099910004312, к/с 30101810400000000225, БИК 044525225"
+                      value={formData.bankDetails}
+                      onChange={(e) => handleInputChange('bankDetails', e.target.value)}
                       className="font-inter"
                     />
                   </div>

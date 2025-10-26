@@ -580,16 +580,33 @@ export default function Index() {
                             body: formData
                           });
                           
-                          if (!response.ok) throw new Error('Upload failed');
+                          if (!response.ok) {
+                            const errorData = await response.json();
+                            throw new Error(errorData.error || 'Upload failed');
+                          }
+                          
+                          const data = await response.json();
+                          
+                          // Download the validated file back
+                          const fileBytes = Uint8Array.from(atob(data.fileBase64), c => c.charCodeAt(0));
+                          const blob = new Blob([fileBytes], { type: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' });
+                          const url = window.URL.createObjectURL(blob);
+                          const link = document.createElement('a');
+                          link.href = url;
+                          link.download = 'template_validated.docx';
+                          document.body.appendChild(link);
+                          link.click();
+                          document.body.removeChild(link);
+                          window.URL.revokeObjectURL(url);
                           
                           toast({
-                            title: 'Успешно!',
-                            description: 'Шаблон обновлён'
+                            title: 'Готово!',
+                            description: `Файл проверен (${(data.fileSize / 1024).toFixed(1)} КБ). Теперь добавь его в backend/generate-contract/template.docx через редактор`
                           });
                         } catch (error) {
                           toast({
                             title: 'Ошибка',
-                            description: 'Не удалось загрузить шаблон',
+                            description: error instanceof Error ? error.message : 'Не удалось загрузить шаблон',
                             variant: 'destructive'
                           });
                         } finally {

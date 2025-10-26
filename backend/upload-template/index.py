@@ -103,26 +103,22 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                 'body': json.dumps({'error': 'No valid file found in request', 'parts': len(parts)})
             }
         
-        # Save template file
-        template_path = '/tmp/template.docx'
-        with open(template_path, 'wb') as f:
-            f.write(file_data)
+        # Validate it's a valid DOCX file (starts with PK zip signature)
+        if not file_data.startswith(b'PK'):
+            return {
+                'statusCode': 400,
+                'headers': {
+                    'Content-Type': 'application/json',
+                    'Access-Control-Allow-Origin': '*'
+                },
+                'isBase64Encoded': False,
+                'body': json.dumps({'error': 'Invalid DOCX file format'})
+            }
         
-        # Copy to generate-contract function directory
-        contract_template_path = os.path.join(
-            os.path.dirname(__file__), 
-            '..', 
-            'generate-contract', 
-            'template.docx'
-        )
+        print(f"DEBUG: Valid DOCX file, size={len(file_data)} bytes")
         
-        # Create directory if not exists
-        os.makedirs(os.path.dirname(contract_template_path), exist_ok=True)
-        
-        # Copy file
-        with open(template_path, 'rb') as src:
-            with open(contract_template_path, 'wb') as dst:
-                dst.write(src.read())
+        # Return base64 encoded file for frontend to download and manually replace
+        file_base64 = base64.b64encode(file_data).decode('utf-8')
         
         return {
             'statusCode': 200,
@@ -131,7 +127,11 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                 'Access-Control-Allow-Origin': '*'
             },
             'isBase64Encoded': False,
-            'body': json.dumps({'message': 'Template uploaded successfully'})
+            'body': json.dumps({
+                'message': 'Template validated successfully',
+                'fileSize': len(file_data),
+                'fileBase64': file_base64
+            })
         }
         
     except Exception as e:

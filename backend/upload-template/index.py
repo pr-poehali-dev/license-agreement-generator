@@ -47,42 +47,53 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
         if is_base64:
             body_bytes = base64.b64decode(body)
         else:
-            body_bytes = body.encode('utf-8') if isinstance(body, str) else body
+            body_bytes = body.encode('latin-1') if isinstance(body, str) else body
         
         # Parse multipart form data
-        content_type = event.get('headers', {}).get('content-type', '')
+        headers = event.get('headers', {})
+        content_type = headers.get('content-type') or headers.get('Content-Type', '')
         
         if 'multipart/form-data' not in content_type:
             return {
                 'statusCode': 400,
-                'headers': {'Access-Control-Allow-Origin': '*'},
-                'body': json.dumps({'error': 'Content-Type must be multipart/form-data'})
+                'headers': {
+                    'Content-Type': 'application/json',
+                    'Access-Control-Allow-Origin': '*'
+                },
+                'isBase64Encoded': False,
+                'body': json.dumps({'error': f'Content-Type must be multipart/form-data, got: {content_type}'})
             }
         
         # Extract boundary
         boundary = content_type.split('boundary=')[-1].strip()
-        boundary_bytes = f'--{boundary}'.encode()
+        boundary_bytes = f'--{boundary}'.encode('latin-1')
         
         # Find file content
         parts = body_bytes.split(boundary_bytes)
         
         file_data = None
         for part in parts:
-            if b'filename=' in part and b'.docx' in part:
+            if b'filename=' in part:
                 # Extract file content (after headers)
                 header_end = part.find(b'\r\n\r\n')
                 if header_end != -1:
                     file_data = part[header_end + 4:]
-                    # Remove trailing boundary markers
-                    if file_data.endswith(b'\r\n'):
+                    # Remove trailing CRLF and boundary markers
+                    if file_data.endswith(b'--\r\n'):
+                        file_data = file_data[:-4]
+                    elif file_data.endswith(b'\r\n'):
                         file_data = file_data[:-2]
                     break
         
-        if not file_data:
+        if not file_data or len(file_data) < 100:
             return {
                 'statusCode': 400,
-                'headers': {'Access-Control-Allow-Origin': '*'},
-                'body': json.dumps({'error': 'No .docx file found in request'})
+                'headers': {
+                    'Content-Type': 'application/json',
+                    'Access-Control-Allow-Origin': '*'
+                },
+                'isBase64Encoded': False,
+                'body': json.dumps({'error': 'No valid file found in request', 'parts': len(parts)})
             }
         
         # Save template file

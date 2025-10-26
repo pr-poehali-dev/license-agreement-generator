@@ -43,11 +43,15 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
         body = event.get('body', '')
         is_base64 = event.get('isBase64Encoded', False)
         
+        print(f"DEBUG: is_base64={is_base64}, body type={type(body)}, body length={len(body) if body else 0}")
+        
         # Decode if base64
         if is_base64:
             body_bytes = base64.b64decode(body)
         else:
             body_bytes = body.encode('latin-1') if isinstance(body, str) else body
+        
+        print(f"DEBUG: body_bytes length={len(body_bytes)}")
         
         # Parse multipart form data
         headers = event.get('headers', {})
@@ -68,8 +72,11 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
         boundary = content_type.split('boundary=')[-1].strip()
         boundary_bytes = f'--{boundary}'.encode('latin-1')
         
+        print(f"DEBUG: boundary={boundary}, parts to split")
+        
         # Find file content
         parts = body_bytes.split(boundary_bytes)
+        print(f"DEBUG: found {len(parts)} parts")
         
         file_data = None
         for part in parts:
@@ -128,6 +135,10 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
         }
         
     except Exception as e:
+        print(f"ERROR: {type(e).__name__}: {str(e)}")
+        import traceback
+        traceback.print_exc()
+        
         return {
             'statusCode': 500,
             'headers': {
@@ -135,5 +146,5 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                 'Access-Control-Allow-Origin': '*'
             },
             'isBase64Encoded': False,
-            'body': json.dumps({'error': str(e)})
+            'body': json.dumps({'error': str(e), 'type': type(e).__name__})
         }

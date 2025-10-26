@@ -10,6 +10,51 @@ import zipfile
 import urllib.request
 from typing import Dict, Any
 
+def replace_text_in_paragraph(paragraph, replacements):
+    """Replace all placeholders in paragraph while preserving formatting"""
+    full_text = paragraph.text
+    
+    # Check if any replacement is needed
+    needs_replacement = False
+    for key in replacements.keys():
+        if key in full_text:
+            needs_replacement = True
+            break
+    
+    if not needs_replacement:
+        return
+    
+    # Perform all replacements
+    new_text = full_text
+    for key, value in replacements.items():
+        new_text = new_text.replace(key, value)
+    
+    # If text hasn't changed, skip
+    if new_text == full_text:
+        return
+    
+    # Clear existing runs and add new text with first run's formatting
+    if paragraph.runs:
+        first_run = paragraph.runs[0]
+        # Save formatting properties
+        font_name = first_run.font.name
+        font_size = first_run.font.size
+        bold = first_run.font.bold
+        italic = first_run.font.italic
+        
+        # Clear all runs
+        for run in paragraph.runs:
+            run.text = ''
+        
+        # Set new text to first run
+        paragraph.runs[0].text = new_text
+        paragraph.runs[0].font.name = font_name
+        paragraph.runs[0].font.size = font_size
+        paragraph.runs[0].font.bold = bold
+        paragraph.runs[0].font.italic = italic
+    else:
+        paragraph.text = new_text
+
 def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
     method: str = event.get('httpMethod', 'GET')
     
@@ -93,36 +138,27 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
         for doc_name in doc_names:
             doc = Document(io.BytesIO(template_bytes))
             
+            # Replace in main document paragraphs
             for paragraph in doc.paragraphs:
-                for run in paragraph.runs:
-                    for key, value in replacements.items():
-                        if key in run.text:
-                            run.text = run.text.replace(key, value)
+                replace_text_in_paragraph(paragraph, replacements)
             
+            # Replace in tables
             for table in doc.tables:
                 for row in table.rows:
                     for cell in row.cells:
                         for paragraph in cell.paragraphs:
-                            for run in paragraph.runs:
-                                for key, value in replacements.items():
-                                    if key in run.text:
-                                        run.text = run.text.replace(key, value)
+                            replace_text_in_paragraph(paragraph, replacements)
             
+            # Replace in headers and footers
             for section in doc.sections:
                 for header in [section.header, section.footer]:
                     for paragraph in header.paragraphs:
-                        for run in paragraph.runs:
-                            for key, value in replacements.items():
-                                if key in run.text:
-                                    run.text = run.text.replace(key, value)
+                        replace_text_in_paragraph(paragraph, replacements)
                     for table in header.tables:
                         for row in table.rows:
                             for cell in row.cells:
                                 for paragraph in cell.paragraphs:
-                                    for run in paragraph.runs:
-                                        for key, value in replacements.items():
-                                            if key in run.text:
-                                                run.text = run.text.replace(key, value)
+                                    replace_text_in_paragraph(paragraph, replacements)
             
             doc_buffer = io.BytesIO()
             doc.save(doc_buffer)

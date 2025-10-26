@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useRef } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -16,6 +16,8 @@ import { cn } from '@/lib/utils';
 export default function Index() {
   const { toast } = useToast();
   const [isLoading, setIsLoading] = useState(false);
+  const [isUploading, setIsUploading] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const [date, setDate] = useState<Date>();
   const [formData, setFormData] = useState({
     citizenship: '',
@@ -545,7 +547,69 @@ export default function Index() {
                     </div>
                   </div>
 
-                  <div className="mt-8 p-6 border-2 border-dashed border-primary/30 rounded-xl text-center">
+                  <div className="mt-8 p-6 border-2 border-dashed border-accent/30 rounded-xl">
+                    <Icon name="Upload" size={32} className="mx-auto mb-3 text-accent" />
+                    <h3 className="font-montserrat font-semibold text-lg mb-2 text-center">Загрузить новый шаблон</h3>
+                    <p className="text-muted-foreground text-center mb-4">
+                      Загрузите обновлённый файл template.docx
+                    </p>
+                    <input
+                      ref={fileInputRef}
+                      type="file"
+                      accept=".docx"
+                      onChange={async (e) => {
+                        const file = e.target.files?.[0];
+                        if (!file) return;
+                        
+                        if (!file.name.endsWith('.docx')) {
+                          toast({
+                            title: 'Ошибка',
+                            description: 'Пожалуйста, выберите файл .docx',
+                            variant: 'destructive'
+                          });
+                          return;
+                        }
+                        
+                        setIsUploading(true);
+                        const formData = new FormData();
+                        formData.append('template', file);
+                        
+                        try {
+                          const response = await fetch('https://functions.poehali.dev/8be813e9-a4dd-4c6b-9aab-938ef9f70319', {
+                            method: 'POST',
+                            body: formData
+                          });
+                          
+                          if (!response.ok) throw new Error('Upload failed');
+                          
+                          toast({
+                            title: 'Успешно!',
+                            description: 'Шаблон обновлён'
+                          });
+                        } catch (error) {
+                          toast({
+                            title: 'Ошибка',
+                            description: 'Не удалось загрузить шаблон',
+                            variant: 'destructive'
+                          });
+                        } finally {
+                          setIsUploading(false);
+                          if (fileInputRef.current) fileInputRef.current.value = '';
+                        }
+                      }}
+                      className="hidden"
+                    />
+                    <Button
+                      onClick={() => fileInputRef.current?.click()}
+                      disabled={isUploading}
+                      className="w-full bg-accent hover:bg-accent/90"
+                    >
+                      <Icon name="Upload" size={18} className="mr-2" />
+                      {isUploading ? 'Загрузка...' : 'Выбрать файл'}
+                    </Button>
+                  </div>
+
+                  <div className="mt-6 p-6 border-2 border-dashed border-primary/30 rounded-xl text-center">
                     <Icon name="Clock" size={32} className="mx-auto mb-3 text-primary" />
                     <h3 className="font-montserrat font-semibold text-lg mb-2">Время работы</h3>
                     <p className="text-muted-foreground">

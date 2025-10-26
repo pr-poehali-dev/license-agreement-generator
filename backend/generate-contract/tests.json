@@ -11,7 +11,9 @@
         "shortName": "EDUARD F.I.",
         "nickname": "EDDI$",
         "passport": "GER: L8V2RCZ80",
-        "email": "mr-frank-eduard@web.de"
+        "email": "mr-frank-eduard@web.de",
+        "innSwift": "SABRRUMMXXX",
+        "bankDetails": "Sberbank, account 12345678901234567890"
       },
       "expectedStatus": 200,
       "expectedHeaders": {

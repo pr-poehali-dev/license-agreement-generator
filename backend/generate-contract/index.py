@@ -84,7 +84,7 @@ def get_next_contract_number() -> str:
 
 def save_contract_to_history(contract_number: str, nickname: str, full_name: str, 
                              short_name: str, contract_date: str, citizenship: str, 
-                             email: str, passport: str):
+                             email: str, passport: str, inn_swift: str, bank_details: str):
     """Save contract info to history"""
     import psycopg2
     
@@ -97,9 +97,9 @@ def save_contract_to_history(contract_number: str, nickname: str, full_name: str
     
     cur.execute(
         "INSERT INTO contracts (contract_number, nickname, full_name, short_name, "
-        "contract_date, citizenship, email, passport) "
-        "VALUES (%s, %s, %s, %s, %s, %s, %s, %s)",
-        (contract_number, nickname, full_name, short_name, contract_date, citizenship, email, passport)
+        "contract_date, citizenship, email, passport, inn_swift, bank_details) "
+        "VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)",
+        (contract_number, nickname, full_name, short_name, contract_date, citizenship, email, passport, inn_swift, bank_details)
     )
     
     conn.commit()
@@ -167,8 +167,10 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
     nickname = body_data.get('nickname', '')
     passport = body_data.get('passport', '')
     email = body_data.get('email', '')
+    inn_swift = body_data.get('innSwift', '')
+    bank_details = body_data.get('bankDetails', '')
     
-    if not all([contract_date, citizenship, full_name, short_name, nickname, passport, email]):
+    if not all([contract_date, citizenship, full_name, short_name, nickname, passport, email, inn_swift, bank_details]):
         return {
             'statusCode': 400,
             'headers': {
@@ -179,12 +181,10 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
             'isBase64Encoded': False
         }
     
-    template_url = 'https://disk.yandex.ru/d/iXT9pWLUhONW3A'
-    
-    direct_download_url = get_direct_download_link(template_url)
-    
-    template_response = urllib.request.urlopen(direct_download_url)
-    template_bytes = template_response.read()
+    # Load template from local file
+    template_path = os.path.join(os.path.dirname(__file__), 'template.docx')
+    with open(template_path, 'rb') as f:
+        template_bytes = f.read()
     
     from docx import Document
     
@@ -196,7 +196,9 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
         '{{ФИО_ИП_кратко}}': short_name,
         '{{NIK}}': nickname,
         '{{PAS}}': passport,
-        '{{mail}}': email
+        '{{mail}}': email,
+        '{{ИНН_SWIFT}}': inn_swift,
+        '{{РЕКВИЗИТЫ_БАНК}}': bank_details
     }
     
     nickname_clean = nickname.replace(' ', '_').replace('/', '-')
@@ -235,7 +237,7 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
     try:
         save_contract_to_history(
             contract_number, nickname, full_name, short_name,
-            contract_date, citizenship, email, passport
+            contract_date, citizenship, email, passport, inn_swift, bank_details
         )
     except Exception as e:
         pass

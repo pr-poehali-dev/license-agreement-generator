@@ -107,32 +107,6 @@ def send_document_to_telegram(file_bytes: bytes, filename: str, bot_token: str, 
     req = urllib.request.Request(url, data=body, headers=headers)
     urllib.request.urlopen(req)
 
-def send_documents_to_telegram(documents: list, contract_number: str):
-    """Send all documents to Telegram"""
-    bot_token = os.environ.get('TELEGRAM_BOT_TOKEN')
-    chat_id = os.environ.get('TELEGRAM_CHAT_ID')
-    
-    if not bot_token or not chat_id:
-        return
-    
-    # Send intro message
-    url = f'https://api.telegram.org/bot{bot_token}/sendMessage'
-    message_data = {
-        'chat_id': chat_id,
-        'text': f'📄 Договор {contract_number}\n\nПакет документов:'
-    }
-    import json
-    req = urllib.request.Request(
-        url,
-        data=json.dumps(message_data).encode('utf-8'),
-        headers={'Content-Type': 'application/json'}
-    )
-    urllib.request.urlopen(req)
-    
-    # Send each document
-    for doc_bytes, doc_name in documents:
-        send_document_to_telegram(doc_bytes, doc_name, bot_token, chat_id)
-
 def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
     method: str = event.get('httpMethod', 'GET')
     
@@ -203,72 +177,56 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
         '{{mail}}': email
     }
     
-    doc_names = [
-        f'Договор_{contract_number.replace("/", "-")}.docx',
-        f'Приложение_1_{contract_number.replace("/", "-")}.docx',
-        f'Приложение_2_{contract_number.replace("/", "-")}.docx',
-        f'Приложение_3_{contract_number.replace("/", "-")}.docx',
-        f'Акт_{contract_number.replace("/", "-")}.docx'
-    ]
+    doc_name = f'Договор_{contract_number.replace("/", "-")}.docx'
     
-    documents_for_telegram = []
-    zip_buffer = io.BytesIO()
+    doc = Document(io.BytesIO(template_bytes))
     
-    with zipfile.ZipFile(zip_buffer, 'w', zipfile.ZIP_DEFLATED) as zip_file:
-        for doc_name in doc_names:
-            doc = Document(io.BytesIO(template_bytes))
-            
-            # Replace in main document paragraphs
-            for paragraph in doc.paragraphs:
+    # Replace in main document paragraphs
+    for paragraph in doc.paragraphs:
+        replace_text_in_paragraph(paragraph, replacements)
+    
+    # Replace in tables
+    for table in doc.tables:
+        for row in table.rows:
+            for cell in row.cells:
+                for paragraph in cell.paragraphs:
+                    replace_text_in_paragraph(paragraph, replacements)
+    
+    # Replace in headers and footers
+    for section in doc.sections:
+        for header in [section.header, section.footer]:
+            for paragraph in header.paragraphs:
                 replace_text_in_paragraph(paragraph, replacements)
-            
-            # Replace in tables
-            for table in doc.tables:
+            for table in header.tables:
                 for row in table.rows:
                     for cell in row.cells:
                         for paragraph in cell.paragraphs:
                             replace_text_in_paragraph(paragraph, replacements)
-            
-            # Replace in headers and footers
-            for section in doc.sections:
-                for header in [section.header, section.footer]:
-                    for paragraph in header.paragraphs:
-                        replace_text_in_paragraph(paragraph, replacements)
-                    for table in header.tables:
-                        for row in table.rows:
-                            for cell in row.cells:
-                                for paragraph in cell.paragraphs:
-                                    replace_text_in_paragraph(paragraph, replacements)
-            
-            doc_buffer = io.BytesIO()
-            doc.save(doc_buffer)
-            doc_buffer.seek(0)
-            doc_bytes = doc_buffer.read()
-            
-            # Save for Telegram
-            documents_for_telegram.append((doc_bytes, doc_name))
-            
-            # Add to ZIP for download
-            zip_file.writestr(doc_name, doc_bytes)
+    
+    doc_buffer = io.BytesIO()
+    doc.save(doc_buffer)
+    doc_buffer.seek(0)
+    doc_bytes = doc_buffer.read()
     
     # Send to Telegram
     try:
-        send_documents_to_telegram(documents_for_telegram, contract_number)
+        bot_token = os.environ.get('TELEGRAM_BOT_TOKEN')
+        chat_id = os.environ.get('TELEGRAM_CHAT_ID')
+        if bot_token and chat_id:
+            send_document_to_telegram(doc_bytes, doc_name, bot_token, chat_id)
     except Exception as e:
         pass  # Continue even if Telegram fails
     
-    zip_buffer.seek(0)
-    zip_bytes = zip_buffer.read()
-    zip_base64 = base64.b64encode(zip_bytes).decode('utf-8')
+    doc_base64 = base64.b64encode(doc_bytes).decode('utf-8')
     
     return {
         'statusCode': 200,
         'headers': {
-            'Content-Type': 'application/zip',
-            'Content-Disposition': f'attachment; filename="Договор_пакет_{contract_number.replace("/", "-")}.zip"',
+            'Content-Type': 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+            'Content-Disposition': f'attachment; filename="{doc_name}"',
             'Access-Control-Allow-Origin': '*'
         },
-        'body': zip_base64,
+        'body': doc_base64,
         'isBase64Encoded': True
     }
 

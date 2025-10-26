@@ -62,7 +62,7 @@ export default function Index() {
       const url = window.URL.createObjectURL(blob);
       const link = document.createElement('a');
       link.href = url;
-      link.download = `Договор_пакет.zip`;
+      link.download = `Договор.docx`;
       document.body.appendChild(link);
       link.click();
       document.body.removeChild(link);
@@ -70,7 +70,7 @@ export default function Index() {
 
       toast({
         title: 'Готово! 📱',
-        description: 'Документы скачаны и отправлены в Telegram'
+        description: 'Договор скачан и отправлен в Telegram'
       });
     } catch (error) {
       toast({

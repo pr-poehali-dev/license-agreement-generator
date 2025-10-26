@@ -8,7 +8,10 @@ import json
 import io
 import zipfile
 import urllib.request
+import os
+import base64
 from typing import Dict, Any
+from datetime import datetime
 
 def replace_text_in_paragraph(paragraph, replacements):
     """Replace all placeholders in paragraph while preserving formatting"""
@@ -55,6 +58,64 @@ def replace_text_in_paragraph(paragraph, replacements):
     else:
         paragraph.text = new_text
 
+def get_next_contract_number() -> str:
+    """Get next contract number from database and increment counter"""
+    import psycopg2
+    
+    database_url = os.environ.get('DATABASE_URL')
+    if not database_url:
+        raise ValueError('DATABASE_URL not found in environment')
+    
+    conn = psycopg2.connect(database_url)
+    cur = conn.cursor()
+    
+    # Get and increment counter atomically
+    cur.execute(
+        "UPDATE contract_counter SET current_number = current_number + 1, "
+        "updated_at = CURRENT_TIMESTAMP WHERE id = 1 RETURNING current_number"
+    )
+    new_number = cur.fetchone()[0]
+    
+    conn.commit()
+    cur.close()
+    conn.close()
+    
+    # Format: ЛД-ГП-001/2024
+    current_year = datetime.now().year
+    return f'ЛД-ГП-{new_number:03d}/{current_year}'
+
+def send_to_telegram(file_bytes: bytes, filename: str, contract_number: str):
+    """Send document to Telegram"""
+    bot_token = os.environ.get('TELEGRAM_BOT_TOKEN')
+    chat_id = os.environ.get('TELEGRAM_CHAT_ID')
+    
+    if not bot_token or not chat_id:
+        return
+    
+    url = f'https://api.telegram.org/bot{bot_token}/sendDocument'
+    
+    import urllib.parse
+    boundary = '----WebKitFormBoundary7MA4YWxkTrZu0gW'
+    
+    body_parts = []
+    body_parts.append(f'--{boundary}'.encode())
+    body_parts.append(f'Content-Disposition: form-data; name="chat_id"\r\n\r\n{chat_id}'.encode())
+    body_parts.append(f'--{boundary}'.encode())
+    body_parts.append(f'Content-Disposition: form-data; name="caption"\r\n\r\n📄 Договор {contract_number}'.encode())
+    body_parts.append(f'--{boundary}'.encode())
+    body_parts.append(f'Content-Disposition: form-data; name="document"; filename="{filename}"\r\nContent-Type: application/zip\r\n\r\n'.encode())
+    body_parts.append(file_bytes)
+    body_parts.append(f'\r\n--{boundary}--\r\n'.encode())
+    
+    body = b'\r\n'.join(body_parts)
+    
+    headers = {
+        'Content-Type': f'multipart/form-data; boundary={boundary}'
+    }
+    
+    req = urllib.request.Request(url, data=body, headers=headers)
+    urllib.request.urlopen(req)
+
 def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
     method: str = event.get('httpMethod', 'GET')
     
@@ -84,7 +145,8 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
     
     body_data = json.loads(event.get('body', '{}'))
     
-    contract_number = body_data.get('contractNumber', '')
+    # Generate next contract number automatically
+    contract_number = get_next_contract_number()
     contract_date = body_data.get('contractDate', '')
     citizenship = body_data.get('citizenship', '')
     full_name = body_data.get('fullName', '')
@@ -93,7 +155,7 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
     passport = body_data.get('passport', '')
     email = body_data.get('email', '')
     
-    if not all([contract_number, contract_date, citizenship, full_name, short_name, nickname, passport, email]):
+    if not all([contract_date, citizenship, full_name, short_name, nickname, passport, email]):
         return {
             'statusCode': 400,
             'headers': {
@@ -167,8 +229,16 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
             zip_file.writestr(doc_name, doc_buffer.read())
     
     zip_buffer.seek(0)
-    import base64
-    zip_base64 = base64.b64encode(zip_buffer.read()).decode('utf-8')
+    zip_bytes = zip_buffer.read()
+    
+    # Send to Telegram
+    try:
+        filename = f'Договор_пакет_{contract_number.replace("/", "-")}.zip'
+        send_to_telegram(zip_bytes, filename, contract_number)
+    except Exception as e:
+        pass  # Continue even if Telegram fails
+    
+    zip_base64 = base64.b64encode(zip_bytes).decode('utf-8')
     
     return {
         'statusCode': 200,

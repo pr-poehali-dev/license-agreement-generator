@@ -12,7 +12,6 @@ export default function Index() {
   const { toast } = useToast();
   const [isLoading, setIsLoading] = useState(false);
   const [formData, setFormData] = useState({
-    contractNumber: '',
     contractDate: '',
     citizenship: '',
     fullName: '',
@@ -27,7 +26,7 @@ export default function Index() {
   };
 
   const handleGenerate = async () => {
-    const requiredFields = ['contractNumber', 'contractDate', 'citizenship', 'fullName', 'shortName', 'nickname', 'passport', 'email'];
+    const requiredFields = ['contractDate', 'citizenship', 'fullName', 'shortName', 'nickname', 'passport', 'email'];
     const emptyFields = requiredFields.filter(field => !formData[field as keyof typeof formData]);
 
     if (emptyFields.length > 0) {
@@ -63,15 +62,15 @@ export default function Index() {
       const url = window.URL.createObjectURL(blob);
       const link = document.createElement('a');
       link.href = url;
-      link.download = `Договор_пакет_${formData.contractNumber.replace('/', '-')}.zip`;
+      link.download = `Договор_пакет.zip`;
       document.body.appendChild(link);
       link.click();
       document.body.removeChild(link);
       window.URL.revokeObjectURL(url);
 
       toast({
-        title: 'Готово!',
-        description: 'Документы успешно сгенерированы и скачаны'
+        title: 'Готово! 📱',
+        description: 'Документы скачаны и отправлены в Telegram'
       });
     } catch (error) {
       toast({
@@ -133,25 +132,11 @@ export default function Index() {
                   Данные для договора
                 </CardTitle>
                 <CardDescription className="font-inter">
-                  Заполните все поля для генерации документов
+                  Заполните все поля. Номер договора присваивается автоматически
                 </CardDescription>
               </CardHeader>
               <CardContent className="pt-6 space-y-5">
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-                  <div className="space-y-2">
-                    <Label htmlFor="contractNumber" className="font-montserrat flex items-center gap-2">
-                      <Icon name="Hash" size={16} />
-                      Номер договора
-                    </Label>
-                    <Input
-                      id="contractNumber"
-                      placeholder="25/10/2025"
-                      value={formData.contractNumber}
-                      onChange={(e) => handleInputChange('contractNumber', e.target.value)}
-                      className="font-inter"
-                    />
-                  </div>
-
                   <div className="space-y-2">
                     <Label htmlFor="contractDate" className="font-montserrat flex items-center gap-2">
                       <Icon name="Calendar" size={16} />

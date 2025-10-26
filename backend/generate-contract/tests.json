@@ -5,7 +5,6 @@
       "method": "POST",
       "path": "/",
       "body": {
-        "contractNumber": "25/10/2025",
         "contractDate": "25 октября 2025 г.",
         "citizenship": "Германии",
         "fullName": "EDUARD FRANK IOSIFOVIC",
@@ -23,9 +22,7 @@
       "name": "Test missing required fields",
       "method": "POST",
       "path": "/",
-      "body": {
-        "contractNumber": "25/10/2025"
-      },
+      "body": {},
       "expectedStatus": 400,
       "expectedBody": {
         "error": "string"
